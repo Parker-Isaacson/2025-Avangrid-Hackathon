@@ -1,0 +1,6 @@
+# Ignore the venv
+Hackathon/
+
+# Ingore any locks from Libre
+data/.~lock*
+docs/.~lock*
