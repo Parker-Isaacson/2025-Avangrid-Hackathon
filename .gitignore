@@ -22,6 +22,6 @@ __pycache__/
 *.tmp
 
 # Ignore intermediate and temporary files
-analysis/analysis_outputs/
-analysis/risk_outputs/
-data/clean_data/
+analysis/analysis_outputs/*
+analysis/risk_outputs/*
+data/clean_data/*
