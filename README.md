@@ -91,12 +91,6 @@ After running the full pipeline, you’ll find:
 
 ---
 
-## Future Ideas
-
-- Extend to DCF and sensitivity testing.
-
----
-
 ## Rubric Crosswalk
 
 | Rubric Category | Criteria | How This Project Meets It | Evidence / File |
