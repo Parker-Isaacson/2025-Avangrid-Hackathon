@@ -8,6 +8,20 @@ docs/.~lock*
 # Notes
 notes.md
 
-# IDE specifics
-.vscode/*
-.idea/*
+# Ignore OS and editor artifacts
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Ignore Python cache and temp files
+__pycache__/
+*.pyc
+*.pyo
+*.log
+*.tmp
+
+# Ignore intermediate and temporary files
+analysis/analysis_outputs/
+analysis/risk_outputs/
+data/clean_data/
