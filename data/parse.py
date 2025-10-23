@@ -1,11 +1,14 @@
-# file: load_all_sheets.py
 import os
 import pandas as pd
 
-def load_all_sheets(filepath: str, output_dir: str = "clean_data") -> dict[str, pd.DataFrame]:
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FILEPATH = os.path.join(PROJECT_ROOT, "data", "HackathonDatasetCleaned.xlsx")
+OUTPUT_DIR = os.path.join(PROJECT_ROOT, "data", "clean_data")
+
+def load_all_sheets() -> dict[str, pd.DataFrame]:
     # Read all sheets
-    sheets = pd.read_excel(filepath, sheet_name=None)
-    os.makedirs(output_dir, exist_ok=True)
+    sheets = pd.read_excel(FILEPATH, sheet_name=None)
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     all_data = {}
 
@@ -33,15 +36,11 @@ def load_all_sheets(filepath: str, output_dir: str = "clean_data") -> dict[str, 
 
         # Write to CSV
         out_name = f"{sheet_name}_clean.csv".replace(" ", "_")
-        out_path = os.path.join(output_dir, out_name)
+        out_path = os.path.join(OUTPUT_DIR, out_name)
         df.to_csv(out_path, index=False)
         all_data[sheet_name] = df
 
     return all_data
 
-
-# Example usage
 if __name__ == "__main__":
-    excel_path = "HackathonDatasetCleaned.xlsx"
-    all_data = load_all_sheets(excel_path)
-
+    all_data = load_all_sheets()

@@ -4,8 +4,9 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-DATA_DIR = "../data/clean_data"
-OUTPUT_DIR = "analysis_outputs"
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_DIR = os.path.join(PROJECT_ROOT, "data", "clean_data")
+OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "analysis_outputs")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 def load_clean_csvs(data_dir: str) -> dict[str, pd.DataFrame]:
@@ -74,10 +75,6 @@ def compute_basic_stats(df: pd.DataFrame, asset_name: str):
 
 
 def extract_forward_curve(df: pd.DataFrame):
-    """
-    Extract forward price curves from columns like:
-    'peak_date', 'peak', 'off_peak' — one row per forward month.
-    """
     if not {"peak_date", "peak", "off_peak"}.issubset(df.columns):
         print("No forward curve columns ('peak_date', 'peak', 'off_peak') found.")
         return None
@@ -95,13 +92,8 @@ def extract_forward_curve(df: pd.DataFrame):
     return fwd_long
 
 def simulate_forward_prices(df: pd.DataFrame, fwd: pd.DataFrame, asset_name: str, sims: int = 200):
-    """
-    Generate simulated forward prices (2026–2030) using historical volatility
-    from hub prices. Works with both ERCOT-style and MISO/CAISO-style data.
-    """
-
     if fwd is None or fwd.empty:
-        print(f"⚠️ No forward curve found for {asset_name}")
+        print(f"No forward curve found for {asset_name}")
         return None
 
     # --- find best available hub column ---
@@ -112,7 +104,7 @@ def simulate_forward_prices(df: pd.DataFrame, fwd: pd.DataFrame, asset_name: str
             break
 
     if hub_col is None:
-        print(f"⚠️ No hub price column found for {asset_name}. Skipping.")
+        print(f"No hub price column found for {asset_name}. Skipping.")
         return None
 
     # --- prepare forward data ---
@@ -149,7 +141,7 @@ def simulate_forward_prices(df: pd.DataFrame, fwd: pd.DataFrame, asset_name: str
     # --- save outputs ---
     sim_out = os.path.join(OUTPUT_DIR, f"{asset_name}_forward_sim.csv")
     sim_df.to_csv(sim_out, index=False)
-    print(f"📈 Saved simulated forward prices for {asset_name} → {sim_out}")
+    print(f"Saved simulated forward prices for {asset_name} → {sim_out}")
 
     plt.figure(figsize=(9, 5))
     for period, sub in sim_df.groupby("period"):
@@ -168,7 +160,6 @@ def main():
     datasets = load_clean_csvs(DATA_DIR)
 
     for name, df in datasets.items():
-        print(f"\n=== Analyzing {name} ===")
         df, stats = compute_basic_stats(df, name)
         fwd = extract_forward_curve(df)
         simulate_forward_prices(df, fwd, name)

@@ -4,3 +4,10 @@ Hackathon/
 # Ingore any locks from Libre
 data/.~lock*
 docs/.~lock*
+
+# Notes
+notes.md
+
+# IDE specifics
+.vscode/*
+.idea/*
