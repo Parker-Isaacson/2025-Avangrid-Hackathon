@@ -9,6 +9,7 @@ ANALYSIS_DIR = os.path.join(os.path.dirname(__file__), "analysis_outputs")
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "risk_outputs")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
+
 def calc_risk_adjusted_price(asset_name: str):
     print(f"Processing {asset_name}...")
 
@@ -54,6 +55,7 @@ def calc_risk_adjusted_price(asset_name: str):
     df = pd.merge(sim_df, monthly_gen, on=["month", "period"], how="left")
     df["monthly_gen_mwh"] = df["monthly_gen_mwh"].fillna(monthly_gen["monthly_gen_mwh"].mean())
 
+    # Compute revenues at each percentile
     for col in ["p25", "p50", "p75"]:
         df[f"revenue_{col}"] = df[col] * df["monthly_gen_mwh"]
 
@@ -62,17 +64,41 @@ def calc_risk_adjusted_price(asset_name: str):
         print(f"{asset_name}: No generation after merge.")
         return {"asset": asset_name, "p25_price": np.nan, "p50_price": np.nan, "p75_price": np.nan, "risk_premium": np.nan}
 
+    # Base (Nominal) Prices
     p25_price = df["revenue_p25"].sum() / total_gen
     p50_price = df["revenue_p50"].sum() / total_gen
     p75_price = df["revenue_p75"].sum() / total_gen
     risk_premium = p75_price - p25_price
 
+    # Discounted Cash Flow Adjustment
+    discount_rate = 0.07  # 7% annual discount rate (adjustable)
+    df["year_offset"] = df["month"].dt.year - df["month"].dt.year.min()
+    df["discount_factor"] = 1 / ((1 + discount_rate) ** df["year_offset"])
+
+    # Apply discount factors to revenues
+    for col in ["p25", "p50", "p75"]:
+        df[f"revenue_{col}_dcf"] = df[f"revenue_{col}"] * df["discount_factor"]
+
+    # Compute discounted totals
+    R_p25_dcf = df["revenue_p25_dcf"].sum()
+    R_p50_dcf = df["revenue_p50_dcf"].sum()
+    R_p75_dcf = df["revenue_p75_dcf"].sum()
+
+    # Convert to DCF-adjusted prices
+    P_p25_dcf = R_p25_dcf / total_gen
+    P_p50_dcf = R_p50_dcf / total_gen
+    P_p75_dcf = R_p75_dcf / total_gen
+
+    # Append results to summary
     return {
         "asset": asset_name,
         "p25_price": round(p25_price, 2),
         "p50_price": round(p50_price, 2),
         "p75_price": round(p75_price, 2),
         "risk_premium": round(risk_premium, 2),
+        "p25_dcf": round(P_p25_dcf, 2),
+        "p50_dcf": round(P_p50_dcf, 2),
+        "p75_dcf": round(P_p75_dcf, 2)
     }
 
 
@@ -116,3 +142,4 @@ if __name__ == "__main__":
     print(summary)
 
     create_comparison_chart(summary)
+
