@@ -25,3 +25,9 @@ __pycache__/
 analysis/analysis_outputs/*
 analysis/risk_outputs/*
 data/clean_data/*
+
+# Technical Specs as LaTeX producs a lot of funky files
+results/*
+!results/TECHNICAL_SPECS.tex
+!results/TECHNICAL_SPECS.pdf
+!results/presentation.pptx

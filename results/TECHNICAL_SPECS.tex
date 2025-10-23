@@ -1,0 +1,206 @@
+\documentclass[12pt]{article}
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{amsmath, amssymb, amsfonts}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{enumitem}
+
+\title{Technical Specification}
+\author{Avangrid Hackathon 2025 Team}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+\newpage
+
+\section{Scope}
+This document rigorously defines the mathematical, statistical, and computational logic behind the following Python modules:
+
+\begin{itemize}
+    \item \texttt{data/parse.py} --- ingestion and normalization of Excel data into clean CSVs.
+    \item \texttt{analysis/analize.py} --- descriptive analytics and forward price simulation.
+    \item \texttt{analysis/risk.py} --- risk-adjusted fixed price computation for merchant renewable assets.
+\end{itemize}
+
+The framework supports transparent and reproducible valuation of merchant renewable energy assets across multiple U.S. markets (ERCOT, MISO, CAISO) for the 2026--2030 horizon.
+
+\section{Conceptual Overview}
+The model blends data engineering, probabilistic simulation, and risk-based financial valuation.
+
+\begin{itemize}
+    \item All forecasts are anchored on observable forward curves.
+    \item Risk is quantified through percentile-based price distributions, analogous to Value at Risk (VaR).
+    \item Historical generation patterns are repeated to capture realistic seasonal volume profiles.
+\end{itemize}
+
+This design ensures transparency and direct traceability from data to decision.
+
+\section{Data Model and Notation}
+\subsection{Indices and Entities}
+\begin{itemize}
+    \item \( t \): Hour index
+    \item \( m \): Month index
+    \item \( p \in \{\text{peak}, \text{off\_peak}\} \): Time-of-use period
+    \item \( a \): Asset identifier (ERCOT, MISO, CAISO)
+\end{itemize}
+
+\subsection{Core Variables}
+\[
+G_t = \text{Generation (MWh)}, \quad
+P_t = \text{Price (\$/MWh)}, \quad
+F_{m,p} = \text{Forward price (\$/MWh)}.
+\]
+
+\subsection{Derived Quantities}
+\begin{align*}
+\text{Basis}^X_t &= P^X_{\text{hub},t} - P^X_{\text{bus},t}, \quad X \in \{\text{RT, DA}\} \\
+G_{m,p} &= \sum_{t \in (m,p)} G_t
+\end{align*}
+
+\section{Dimensional Analysis}
+All derived quantities are dimensionally consistent:
+\[
+[P] = \frac{\$}{\text{MWh}}, \quad [G] = \text{MWh}, \quad [R] = \$.
+\]
+Thus \( R = P \times G \) yields revenue in dollars, and \( R / G \) has units of \$/MWh.
+
+\section{Data Ingestion and Normalization (\texttt{parse.py})}
+\subsection{Functionality}
+\begin{enumerate}[label=\alph*)]
+    \item Reads all Excel sheets.
+    \item Standardizes headers (lowercase, snake\_case).
+    \item Cleans monetary strings (\$, parentheses) $\to$ float.
+    \item Builds timestamps:
+    \[
+    \text{timestamp} = \text{datetime(date)} + (\text{HE}-1)\text{h}.
+    \]
+    \item Outputs one cleaned CSV per sheet to \texttt{data/clean\_data/}.
+\end{enumerate}
+
+\subsection{Purpose}
+Ensures a consistent schema: \texttt{timestamp}, \texttt{gen}, \texttt{rt\_hub}, \texttt{da\_hub}, \texttt{peak\_date}, \texttt{peak}, \texttt{off\_peak}, etc.
+
+\section{Descriptive Analytics and Forward Simulation (\texttt{analize.py})}
+
+\subsection{Summary Statistics}
+For each asset:
+\begin{align*}
+\sigma_P &= \sqrt{\frac{1}{N-1}\sum_t (P_t - \bar P)^2}, \\
+\rho(G,P) &= \frac{\operatorname{Cov}(G,P)}{\sigma_G \sigma_P}.
+\end{align*}
+
+Computed metrics include:
+\begin{itemize}
+    \item Capacity factor
+    \item Price volatility
+    \item Correlation of generation vs. price
+    \item Negative price frequency
+    \item Hub–busbar basis mean and variance
+\end{itemize}
+
+\subsection{Forward Curve Extraction}
+From columns \texttt{peak\_date | peak | off\_peak}, create long-form \( (m, p, F_{m,p}) \) dataset for 2026--2030.
+
+\subsection{Monte Carlo Simulation}
+Monthly stochastic price draws:
+\[
+P^{(i)}_{m,p} = F_{m,p} + \epsilon^{(i)}_{m,p}, \quad
+\epsilon^{(i)}_{m,p} \sim \mathcal{N}(0, \sigma_{\text{hub}} \kappa_p),
+\]
+with $\kappa_{\text{peak}} = 1.0$, $\kappa_{\text{off}} = 0.7$.
+Percentiles:
+\[
+\{P_{25}, P_{50}, P_{75}, P_{90}\} = \text{quantiles of simulated draws}.
+\]
+
+\section{Risk-Adjusted Valuation (\texttt{risk.py})}
+
+\subsection{Monthly Generation}
+Aggregate generation:
+\[
+G_{m,p} = \sum_{t \in (m,p)} G_t.
+\]
+Replicate across simulated years:
+\[
+G_{m_y,p} = G_{m_{base},p}.
+\]
+
+\subsection{Revenue and Price}
+For each percentile \( q \in \{25,50,75\} \):
+\begin{align*}
+R_{m,p}^{(q)} &= P_{m,p}^{(q)} \cdot G_{m,p}, \\
+R_{\text{tot}}^{(q)} &= \sum_{m,p} R_{m,p}^{(q)}, \\
+\bar P^{(q)} &= \frac{R_{\text{tot}}^{(q)}}{\sum_{m,p} G_{m,p}}.
+\end{align*}
+
+\subsection{Risk Premium}
+\[
+\text{Risk Premium} = \bar P^{(75)} - \bar P^{(25)}.
+\]
+This represents the compensation required to hedge against price uncertainty.
+
+\section{Model Validation and Interpretation}
+\subsection{Statistical Validation}
+\begin{itemize}
+    \item Simulated mean $\approx$ historical mean $\pm$10\%.
+    \item \( P_{25} < P_{50} < P_{75} \) ordering verified.
+    \item Correlation \( \rho(G,P) \) consistent with market expectations.
+\end{itemize}
+
+\subsection{Economic Interpretation}
+\[
+\bar P^{(75)} \text{: Price ensuring 75\% probability of outperforming merchant exposure.}
+\]
+\[
+\text{Risk Premium} = P_{75} - P_{25} \text{: compensation for volatility.}
+\]
+
+\section{Glossary}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Term & Meaning & Unit \\
+\midrule
+PPA & Power Purchase Agreement & --- \\
+RT & Real-Time & --- \\
+DA & Day-Ahead & --- \\
+ISO & Independent System Operator & --- \\
+Hub & Regional market node & --- \\
+Busbar & Generator's physical node & --- \\
+P/OP & Peak/Off-Peak flag & --- \\
+REC & Renewable Energy Credit & --- \\
+\bottomrule
+\end{tabular}
+
+\section{Assumptions and Future Work}
+\subsection{Assumptions}
+\begin{itemize}
+    \item Constant generation pattern (2026–2030).
+    \item Gaussian price innovations.
+    \item No degradation, curtailment, or O\&M costs.
+    \item Off-peak volatility scaled to 0.7× peak.
+\end{itemize}
+
+\section{Validation Checklist}
+\begin{itemize}
+    \item Clean CSV schema validated.
+    \item Forward coverage spans 2026–2030.
+    \item Non-zero monthly MWh confirmed.
+    \item Percentile ordering correct.
+\end{itemize}
+
+\section{Module Summary}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Module & Purpose & Output \\
+\midrule
+\texttt{parse.py} & Data normalization & \texttt{data/clean\_data/*.csv} \\
+\texttt{analize.py} & Forward simulation & \texttt{analysis\_outputs/*\_forward\_sim.csv} \\
+\texttt{risk.py} & Risk-adjusted valuation & \texttt{risk\_outputs/risk\_adjusted\_summary.csv} \\
+\bottomrule
+\end{tabular}
+
+\end{document}
